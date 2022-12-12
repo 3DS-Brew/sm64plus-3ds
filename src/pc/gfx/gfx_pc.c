@@ -691,9 +691,7 @@ static void import_texture_ia4(int tile) {
     gfx_rapi->upload_texture(rgba32_buf, width, height);
 }
 
-static void import_texture_ia8(int tile) {
-    uint8_t rgba32_buf[16384];
-    
+static void import_texture_ia8(int tile) {    
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
         uint8_t intensity = rdp.loaded_texture[tile].addr[i] >> 4;
         uint8_t alpha = rdp.loaded_texture[tile].addr[i] & 0xf;
@@ -734,8 +732,6 @@ static void import_texture_ia16(int tile) {
 }
 
 static void import_texture_i4(int tile) {
-    uint8_t rgba32_buf[32768];
-
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
         uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
         uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
@@ -1167,10 +1163,26 @@ static void gfx_sp_vertex(size_t n_vertices, size_t dest_index, const Vtx *verti
         
         // trivial clip rejection
         d->clip_rej = 0;
+#ifdef TARGET_N3DS
+    if ((gGfx3DSMode == GFX_3DS_MODE_NORMAL || gGfx3DSMode == GFX_3DS_MODE_AA_22) && gSliderLevel > 0.0f) {
+        float wMod = w * 1.2f; // expanded w-range for testing clip rejection
+        if (x < -wMod) d->clip_rej |= 1;
+        if (x > wMod) d->clip_rej |= 2;
+        if (y < -wMod) d->clip_rej |= 4;
+        if (y > wMod) d->clip_rej |= 8;
+    }
+    else {
         if (x < -w) d->clip_rej |= 1;
         if (x > w) d->clip_rej |= 2;
         if (y < -w) d->clip_rej |= 4;
         if (y > w) d->clip_rej |= 8;
+    }
+#else        
+        if (x < -w) d->clip_rej |= 1;
+        if (x > w) d->clip_rej |= 2;
+        if (y < -w) d->clip_rej |= 4;
+        if (y > w) d->clip_rej |= 8;
+#endif
         if (z < -w) d->clip_rej |= 16;
         if (z > w) d->clip_rej |= 32;
         
@@ -1352,7 +1364,11 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
         }
         buf_vbo[buf_vbo_len++] = v_arr[i]->x;
         buf_vbo[buf_vbo_len++] = v_arr[i]->y;
+#ifdef TARGET_N3DS
+        buf_vbo[buf_vbo_len++] = -z;
+#else        
         buf_vbo[buf_vbo_len++] = z;
+#endif
         buf_vbo[buf_vbo_len++] = w;
         
         if (use_texture) {
@@ -1366,14 +1382,14 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
             buf_vbo[buf_vbo_len++] = u / tex_width;
             buf_vbo[buf_vbo_len++] = v / tex_height;
         }
-        
+#ifndef TARGET_N3DS        
         if (use_fog) {
             buf_vbo[buf_vbo_len++] = rdp.fog_color.r / 255.0f;
             buf_vbo[buf_vbo_len++] = rdp.fog_color.g / 255.0f;
             buf_vbo[buf_vbo_len++] = rdp.fog_color.b / 255.0f;
             buf_vbo[buf_vbo_len++] = v_arr[i]->color.a / 255.0f; // fog factor (not alpha)
         }
-        
+#endif        
         for (int j = 0; j < num_inputs; j++) {
             struct RGBA *color;
             struct RGBA tmp;
@@ -1510,6 +1526,9 @@ static void gfx_sp_moveword(uint8_t index, uint16_t offset, uint32_t data) {
         case G_MW_FOG:
             rsp.fog_mul = (int16_t)(data >> 16);
             rsp.fog_offset = (int16_t)data;
+#ifdef TARGET_N3DS
+            gfx_rapi->set_fog(rsp.fog_mul, rsp.fog_offset);
+#endif            
             break;
     }
 }
@@ -1688,6 +1707,9 @@ static void gfx_dp_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 
     switch (get_palette()) {
         default:
+#ifdef TARGET_N3DS
+    gfx_rapi->set_fog_color(r, g, b, a);
+#endif        
             rdp.fog_color.r = r;
             rdp.fog_color.g = g;
             rdp.fog_color.b = b;
@@ -2117,6 +2139,18 @@ static void gfx_run_dl(Gfx* cmd) {
             case G_SETCIMG:
                 gfx_dp_set_color_image(C0(21, 3), C0(19, 2), C0(0, 11), seg_addr(cmd->words.w1));
                 break;
+#ifdef TARGET_N3DS
+            case G_SPECIAL_1:
+                gfx_set_2d(cmd->words.w1);
+                break;
+            case G_SPECIAL_2:
+                gfx_flush();
+                break;
+
+            case G_SPECIAL_4:
+                gfx_set_iod(cmd->words.w1);
+                break;
+#endif                
         }
         ++cmd;
     }
@@ -2137,7 +2171,15 @@ void gfx_init(struct GfxWindowManagerAPI *wapi, struct GfxRenderingAPI *rapi, co
     gfx_rapi = rapi;
     gfx_wapi->init(game_name, start_in_fullscreen);
     gfx_rapi->init();
-    
+#ifdef TARGET_N3DS
+    // dimensions won't change on 3DS, so just do this once
+    gfx_wapi->get_dimensions(&gfx_current_dimensions.width, &gfx_current_dimensions.height);
+    if (gfx_current_dimensions.height == 0) {
+        // Avoid division by zero
+        gfx_current_dimensions.height = 1;
+    }
+    gfx_current_dimensions.aspect_ratio = (float)gfx_current_dimensions.width / (float)gfx_current_dimensions.height;
+#endif
     // Used in the 120 star TAS
     static uint32_t precomp_shaders[] = {
         0x01200200,
@@ -2165,7 +2207,8 @@ void gfx_init(struct GfxWindowManagerAPI *wapi, struct GfxRenderingAPI *rapi, co
         0x03200200,
         0x09200200,
         0x0920038d,
-        0x09200045
+        0x09200045,
+        0x09200a00 // thanks aboood!
     };
     for (size_t i = 0; i < sizeof(precomp_shaders) / sizeof(uint32_t); i++) {
         gfx_lookup_or_create_shader_program(precomp_shaders[i]);
@@ -2178,19 +2221,19 @@ struct GfxRenderingAPI *gfx_get_current_rendering_api(void) {
 
 void gfx_start_frame(void) {
     gfx_wapi->handle_events();
+#ifndef TARGET_N3DS
     gfx_wapi->get_dimensions(&gfx_current_dimensions.width, &gfx_current_dimensions.height);
     if (gfx_current_dimensions.height == 0) {
         // Avoid division by zero
         gfx_current_dimensions.height = 1;
     }
     gfx_current_dimensions.aspect_ratio = (float)gfx_current_dimensions.width / (float)gfx_current_dimensions.height;
+#endif
 }
 
 void gfx_run(Gfx *commands) {
     gfx_sp_reset();
-    
-    //puts("New frame");
-    
+
     if (!gfx_wapi->start_frame()) {
         dropped_frame = true;
         return;

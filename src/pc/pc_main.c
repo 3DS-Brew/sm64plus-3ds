@@ -25,10 +25,14 @@
 #include "gfx/gfx_dxgi.h"
 #include "gfx/gfx_sdl.h"
 #include "gfx/gfx_dummy.h"
+#include "gfx/gfx_3ds.h"
+#include "gfx/gfx_citro3d.h"
 
 #include "audio/audio_api.h"
 #include "audio/audio_sdl.h"
 #include "audio/audio_null.h"
+#include "audio/audio_3ds.h"
+#include "audio/audio_3ds_threading.h"
 
 #include "controller/controller_keyboard.h"
 
@@ -118,22 +122,21 @@ void produce_one_frame(void) {
     thread6_rumble_loop(NULL);
 #endif
     
+#ifndef TARGET_N3DS
     int samples_left = audio_api->buffered();
     u32 num_audio_samples = samples_left < audio_api->get_desired_buffered() ? SAMPLES_HIGH : SAMPLES_LOW;
-    //printf("Audio samples: %d %u\n", samples_left, num_audio_samples);
     s16 audio_buffer[SAMPLES_HIGH * 2 * 2];
     for (int i = 0; i < 2; i++) {
-        /*if (audio_cnt-- == 0) {
-            audio_cnt = 2;
-        }
-        u32 num_audio_samples = audio_cnt < 2 ? 528 : 544;*/
         create_next_audio_buffer(audio_buffer + i * (num_audio_samples * 2), num_audio_samples);
     }
-    //printf("Audio samples before submitting: %d\n", audio_api->buffered());
     audio_api->play((u8 *)audio_buffer, 2 * num_audio_samples * 4);
-    
+#endif
     gfx_end_frame();
-    
+#ifdef TARGET_N3DS
+#ifndef DISABLE_AUDIO
+    LightEvent_Wait(&s_event_main);
+#endif
+#endif    
     gfx_start_frame();
     if (configFrameRate) {
         patch_interpolations();
@@ -195,8 +198,8 @@ void main_func(const char* gfx_dir) {
     main_pool_init();
     gGfxAllocOnlyPool = alloc_only_pool_init();
 #else
-    static u64 pool[0x165000/8 / 4 * sizeof(void *)];
-    main_pool_init(pool, pool + sizeof(pool) / sizeof(pool[0]));
+    static u8 pool[DOUBLE_SIZE_ON_64_BIT(0x165000)] __attribute__ ((aligned(16)));
+    main_pool_init(pool, pool + sizeof(pool));
 #endif
     gEffectsMemoryPool = mem_pool_init(0x4000, MEMORY_POOL_LEFT);
 
@@ -265,7 +268,9 @@ void main_func(const char* gfx_dir) {
         rendering_api = &gfx_opengl_api;
         wm_api = &gfx_sdl;
         break;
-#endif
+#elif defined(TARGET_N3DS)
+    wm_api = &gfx_3ds;
+    rendering_api = &gfx_citro3d_api;
     default:
         rendering_api = &gfx_dummy_renderer_api;
         wm_api = &gfx_dummy_wm_api;
@@ -279,19 +284,29 @@ void main_func(const char* gfx_dir) {
     if (audio_sdl.init()) {
         audio_api = &audio_sdl;
     }
+#endif
+#ifdef TARGET_N3DS
+#ifndef DISABLE_AUDIO
+    if (audio_api == NULL && audio_3ds.init()) {
+        audio_api = &audio_3ds;
+    }
+#endif    
     else {
         audio_api = &audio_null;
     }
+
 
     audio_init();
     sound_init();
 
     thread5_game_loop(NULL);
 #ifdef TARGET_WEB
-    /*for (int i = 0; i < atoi(argv[1]); i++) {
-        game_loop_one_iteration();
-    }*/
     inited = 1;
+#elif defined(TARGET_N3DS)
+    inited = 1;
+    //the 3ds version has its own main loop
+    wm_api->main_loop(produce_one_frame);
+    audio_api->stop();    
 #else
     inited = 1;
     while (1) {
