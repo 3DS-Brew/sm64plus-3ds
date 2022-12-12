@@ -2,7 +2,7 @@
 
 SM64Plus 3DS is a fork of [sm64-plus](https://github.com/MorsGames/sm64plus) that adds well 3ds support lmao
 
-# Credits
+# 3DS Port Credits
 
 - Ty_1991/Zero0xx - The port itself
 - mkst - 3DS Code
