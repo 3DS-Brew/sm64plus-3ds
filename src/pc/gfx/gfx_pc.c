@@ -29,6 +29,9 @@
 #include "../../game/game_init.h"
 #include "../../game/settings.h"
 #include "../../engine/math_util.h"
+#ifdef TARGET_N3DS
+#include "gfx_3ds.h"
+#endif
 
 #define SUPPORT_CHECK(x) assert(x)
 
@@ -184,6 +187,42 @@ static size_t buf_vbo_num_tris;
 
 static struct GfxWindowManagerAPI *gfx_wapi;
 static struct GfxRenderingAPI *gfx_rapi;
+
+#ifdef TARGET_N3DS
+static void gfx_set_2d(int mode_2d)
+{
+    gfx_rapi->set_2d(mode_2d);
+}
+
+static void gfx_set_iod(unsigned int iod)
+{
+    float z, w;
+    switch(iod) {
+        case iodNormal :
+            z = 8.0f;
+            w = 16.0f;
+            break;
+        case iodGoddard :
+            z = 0.5f;
+            w = 0.5f;
+            break;
+        case iodFileSelect :
+            z = 96.0f;
+            w = 128.0f;
+            break;
+        case iodStarSelect :
+            z = 128.0f;
+            w = 76.0f;
+            break;
+        case iodCannon :
+            z = 0.0f;
+            w = -128.0f;
+            break;
+    }
+    gfx_rapi->set_iod(z, w);
+}
+#endif
+
 
 // 4x4 pink-black checkerboard texture to indicate missing textures
 #define MISSING_W 4
@@ -499,7 +538,6 @@ static bool import_texture_custom(const char *path) {
 #else
 
 static void import_texture_rgba16(int tile) {
-    uint8_t rgba32_buf[8192];
     uint8_t rgba32_buf_out[8192*4*4];
     
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes / 2; i++) {
@@ -668,9 +706,7 @@ static void import_texture_rgba32(int tile) {
     gfx_rapi->upload_texture(rdp.loaded_texture[tile].addr, width, height);
 }
 
-static void import_texture_ia4(int tile) {
-    uint8_t rgba32_buf[32768];
-    
+static void import_texture_ia4(int tile) {    
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
         uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
         uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
@@ -710,9 +746,9 @@ static void import_texture_ia8(int tile) {
     gfx_rapi->upload_texture(rgba32_buf, width, height);
 }
 
-static void import_texture_ia16(int tile) {
-    uint8_t rgba32_buf[8192];
-    
+static uint8_t rgba32_buf[32768] __attribute__((aligned(32)));
+
+static void import_texture_ia16(int tile) {    
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes / 2; i++) {
         uint8_t intensity = rdp.loaded_texture[tile].addr[2 * i];
         uint8_t alpha = rdp.loaded_texture[tile].addr[2 * i + 1];
@@ -752,8 +788,6 @@ static void import_texture_i4(int tile) {
 }
 
 static void import_texture_i8(int tile) {
-    uint8_t rgba32_buf[16384];
-
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
         uint8_t intensity = rdp.loaded_texture[tile].addr[i];
         uint8_t r = intensity;
@@ -772,9 +806,7 @@ static void import_texture_i8(int tile) {
 }
 
 
-static void import_texture_ci4(int tile) {
-    uint8_t rgba32_buf[32768];
-    
+static void import_texture_ci4(int tile) {    
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
         uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
         uint8_t idx = (byte >> (4 - (i % 2) * 4)) & 0xf;
@@ -795,9 +827,7 @@ static void import_texture_ci4(int tile) {
     gfx_rapi->upload_texture(rgba32_buf, width, height);
 }
 
-static void import_texture_ci8(int tile) {
-    uint8_t rgba32_buf[16384];
-    
+static void import_texture_ci8(int tile) {    
     for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
         uint8_t idx = rdp.loaded_texture[tile].addr[i];
         uint16_t col16 = (rdp.palette[idx * 2] << 8) | rdp.palette[idx * 2 + 1]; // Big endian load

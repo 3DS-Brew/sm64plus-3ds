@@ -4,10 +4,14 @@
 #include "lib/src/osContInternal.h"
 
 #include "controller_recorded_tas.h"
+#if defined(TARGET_N3DS)
+#include "controller_3ds.h"
+#else
 #include "controller_sdl.h"
 #include "controller_keyboard.h"
 
 #include "game/settings.h"
+
 
 static struct ControllerAPI *controller_implementations[] = {
     &controller_recorded_tas,
