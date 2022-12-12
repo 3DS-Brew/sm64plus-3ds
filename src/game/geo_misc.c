@@ -28,7 +28,7 @@
  */
 
 #define NUM_FLYING_CARPET_VERTICES 21
-extern const s16 flying_carpet_static_vertex_data[NUM_FLYING_CARPET_VERTICES];
+extern const s16 flying_carpet_static_vertex_data[4*NUM_FLYING_CARPET_VERTICES];
 
 static s16 sCurAreaTimer = 1;
 static s16 sPrevAreaTimer = 0;
@@ -84,6 +84,15 @@ Gfx *geo_exec_inside_castle_light(s32 callContext, struct GraphNode *node, UNUSE
     Gfx *displayListHead = NULL;
     Gfx *displayList = NULL;
 
+#ifdef TARGET_N3DS
+    if (callContext == GEO_CONTEXT_RENDER) {
+        displayList = alloc_display_list(5 * sizeof(*displayList));
+        displayListHead = displayList;
+
+        generatedNode->fnNode.node.flags = (generatedNode->fnNode.node.flags & 0xFF) | 0x100;
+        gDPForceFlush(displayListHead++);
+        gDPSet2d(displayListHead++, 1);
+#else
     if (callContext == GEO_CONTEXT_RENDER) {
         flags = save_file_get_flags();
         if (gHudDisplay.stars >= 10 && !(flags & SAVE_FLAG_HAVE_WING_CAP)) {
@@ -203,6 +212,7 @@ Gfx *geo_exec_cake_end_screen(s32 callContext, struct GraphNode *node, UNUSED f3
         displayListHead = displayList;
 
         generatedNode->fnNode.node.flags = (generatedNode->fnNode.node.flags & 0xFF) | 0x100;
+#endif
 #ifdef VERSION_EU
         gSPDisplayList(displayListHead++, dl_cake_end_screen);
 #else
@@ -223,6 +233,7 @@ Gfx *geo_exec_cake_end_screen(s32 callContext, struct GraphNode *node, UNUSED f3
 #else
         gSPDisplayList(displayListHead++, dl_cake_end_screen);
 #endif
+
         gSPEndDisplayList(displayListHead);
     }
 

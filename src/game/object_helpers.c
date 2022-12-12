@@ -466,6 +466,27 @@ struct Object *spawn_object_abs_with_rot_degrees(struct Object *parent, s16 usel
     return newObj;
 }
 
+#ifdef TARGET_N3DS
+/*
+ * Basically a special function to hard code menu button scale values independently instead of using oMenuButtonScale
+ */
+struct Object *spawn_object_rel_with_rot_x_scaling(struct Object *parent, u32 model, const BehaviorScript *behavior,
+                                         s16 xOff, s16 yOff, s16 zOff, s16 rx, s16 ry, UNUSED s16 rz) {
+    struct Object *newObj = spawn_object_at_origin(parent, 0, model, behavior);
+
+    newObj->header.gfx.scale[1] = 0.11111111f, newObj->header.gfx.scale[2] = 0.11111111f;
+    newObj->header.gfx.scale[0] = newObj->header.gfx.scale[1] / 1.25f; // 1.25f = (current aspect ratio / default aspect ratio) for 3DS
+
+    obj_apply_scale_to_transform(newObj); // permanently gives buttons a skewed scale, needs to be divided out to return to default
+
+    newObj->oFlags |= OBJ_FLAG_TRANSFORM_RELATIVE_TO_PARENT; // ties child obj and parent object oMenuButtonScale, removing breaks menu
+    obj_set_parent_relative_pos(newObj, xOff, yOff, zOff);
+    obj_set_angle(newObj, rx, ry, zOff);
+
+    return newObj;
+}
+#endif
+
 /*
  * Spawns an object at an absolute location with a specified angle.
  */

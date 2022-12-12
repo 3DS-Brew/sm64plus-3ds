@@ -311,7 +311,11 @@ Gfx *geo_intro_gameover_backdrop(s32 state, struct GraphNode *node, UNUSED void 
             }
         } else {
             // transition tile from "Game Over" to "Super Mario 64"
+#ifdef TARGET_N3DS
+            if (gGameOverTableIndex != 14 && !(gGameOverFrameCounter & 0x1)) {
+#else            
             if (sGameOverTableIndex != 11 && !(sGameOverFrameCounter & 0x1)) {
+#endif                
                 // order of tiles that are flipped from "Game Over" to "Super Mario 64"
                 static s8 flipOrder[] = { 0, 1, 2, 3, 7, 11, 10, 9, 8, 4, 5, 6 };
 
@@ -320,7 +324,11 @@ Gfx *geo_intro_gameover_backdrop(s32 state, struct GraphNode *node, UNUSED void 
                     INTRO_BACKGROUND_SUPER_MARIO;
             }
         }
+#ifdef TARGET_N3DS
+        if (gGameOverTableIndex != 14) {
+#else        
         if (sGameOverTableIndex != 11) {
+#endif            
             sGameOverFrameCounter++;
         }
         graphNode->flags = (graphNode->flags & 0xFF) | (LAYER_OPAQUE << 8);

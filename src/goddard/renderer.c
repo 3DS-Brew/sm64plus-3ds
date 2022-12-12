@@ -2426,6 +2426,9 @@ void start_view_dl(struct ObjView *view) {
 #ifdef TARGET_N64
     gDPSetScissor(next_gfx(), G_SC_NON_INTERLACE, ulx, uly, lrx, lry);
 #endif
+#ifdef TARGET_N3DS
+    gDPSetIod(next_gfx(), iodGoddard);
+#endif
     gSPClearGeometryMode(next_gfx(), 0xFFFFFFFF);
     gSPSetGeometryMode(next_gfx(), G_LIGHTING | G_CULL_BACK | G_SHADING_SMOOTH | G_SHADE);
     if (view->flags & VIEW_ALLOC_ZBUF) {
@@ -3599,6 +3602,10 @@ void gd_put_sprite(u16 *sprite, s32 x, s32 y, s32 wx, s32 wy) {
     s32 c; // 5c
     s32 r; // 58
 
+#ifdef TARGET_N3DS
+    gDPForceFlush(next_gfx());
+    gDPSet2d(next_gfx(), 2);
+#endif
     gSPDisplayList(next_gfx(), osVirtualToPhysical(gd_dl_sprite_start_tex_block));
     for (r = 0; r < wy; r += 32) {
         for (c = 0; c < wx; c += 32) {
@@ -3613,6 +3620,11 @@ void gd_put_sprite(u16 *sprite, s32 x, s32 y, s32 wx, s32 wy) {
     gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
     gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
     gSPTexture(next_gfx(), 0x8000, 0x8000, 0, G_TX_RENDERTILE, G_OFF);
+
+#ifdef TARGET_N3DS
+    gDPForceFlush(next_gfx());
+    gDPSet2d(next_gfx(), 0);
+#endif
 }
 
 /* 254DFC -> 254F94; orig name: proc_dyn_list */

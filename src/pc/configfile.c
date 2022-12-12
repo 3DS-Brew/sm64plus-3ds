@@ -6,6 +6,10 @@
 #include <assert.h>
 #include <ctype.h>
 
+#ifdef TARGET_N3DS
+#include "3ds.h"
+#endif
+
 #include "configfile.h"
 #include "../game/settings.h"
 #include "../game/main.h"
