@@ -615,8 +615,13 @@ void general_star_dance_handler(struct MarioState *m, s32 isInWater) {
                 }
                 // We will be extending the cap timer artificially for this star.
                 if (configStayInCourse && gCollectedStar == 5 && gCurrLevelNum == LEVEL_DDD) {
-                    m->flags |= MARIO_VANISH_CAP | MARIO_METAL_CAP | MARIO_CAP_ON_HEAD;
-                    m->capTimer = 300;
+
+                    if (m->flags & MARIO_CAP_ON_HEAD) {
+                        m->flags |= MARIO_VANISH_CAP;
+                    }
+                    if (m->capTimer < 300) {
+                        m->capTimer = 300;
+                    }
                 }
                 break;
 
@@ -635,7 +640,18 @@ void general_star_dance_handler(struct MarioState *m, s32 isInWater) {
                 } else {
 
                     // Ugly code ahead!
-                    // This is the most readable I could make the code without overcomplicating it 
+                    // This is the most readable I could make the code without overcomplicating it
+
+                    // First let's get if we have all the stars
+                    s32 i;
+                    u8 starCount = 0;
+                    u8 flag = 1;
+                    u8 starFlags = save_file_get_star_flags(gCurrSaveFileNum - 1, gCurrCourseNum - 1);
+                    for (i = 0; i < 7; i++, flag <<= 1) {
+                        if (!(starFlags & flag)) {
+                            starCount++;
+                        }
+                    }
 
                     // If we set it to ask
                     if (configStayInCourse > 0 &&
@@ -648,6 +664,11 @@ void general_star_dance_handler(struct MarioState *m, s32 isInWater) {
                     else if (configStayInCourse == 1) {
                         enable_time_stop();
                         create_dialog_box_with_response(gLastCompletedStarNum == 7 ? DIALOG_171 : DIALOG_170);
+                        m->actionState = 1;
+                    }
+                    else if (configStayInCourse == 2 && starCount >= 7) {
+                        enable_time_stop();
+                        create_dialog_box_with_response(gLastCompletedStarNum == 7 ? DIALOG_171 : DIALOG_175);
                         m->actionState = 1;
                     }
                     // If it's automatic
@@ -698,13 +719,24 @@ void general_star_dance_handler(struct MarioState *m, s32 isInWater) {
     }
 }
 
+s8 get_random_hand_sign(struct MarioState *m) {
+    s8 handSign = m->faceAngle[1] % 3;
+    if (handSign == 0) {
+        return MARIO_HAND_PEACE_SIGN;
+    } else if (handSign == 1) {
+        return MARIO_HAND_RIGHT_OPEN;
+    } else {
+        return MARIO_HAND_FISTS;
+    }
+}
+
 s32 act_star_dance(struct MarioState *m) {
     m->faceAngle[1] = m->area->camera->yaw;
     set_mario_animation(m, m->actionState == 2 ? MARIO_ANIM_RETURN_FROM_STAR_DANCE
                                                : MARIO_ANIM_STAR_DANCE);
     general_star_dance_handler(m, 0);
     if (m->actionState != 2 && m->actionTimer >= 40) {
-        m->marioBodyState->handState = MARIO_HAND_PEACE_SIGN;
+        m->marioBodyState->handState = configRockPaperScissors ? get_random_hand_sign(m) : MARIO_HAND_PEACE_SIGN;
     }
     stop_and_set_height_to_floor(m);
     return FALSE;
@@ -718,7 +750,7 @@ s32 act_star_dance_water(struct MarioState *m) {
     vec3s_set(m->marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
     general_star_dance_handler(m, 1);
     if (m->actionState != 2 && m->actionTimer >= 62) {
-        m->marioBodyState->handState = MARIO_HAND_PEACE_SIGN;
+        m->marioBodyState->handState = configRockPaperScissors ? get_random_hand_sign(m) : MARIO_HAND_PEACE_SIGN;
     }
     return FALSE;
 }
