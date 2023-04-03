@@ -20,7 +20,7 @@ TARGET_N64 ?= 0
 # Build for Emscripten/WebGL
 TARGET_WEB ?= 0
 # Build for Nintendo 3DS
-TARGET_N3DS ?= 1
+TARGET_N3DS ?= 0
 # Compiler to use (ido or gcc)
 
 

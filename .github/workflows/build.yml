@@ -19,3 +19,9 @@ jobs:
           sudo apt install -y git build-essential pkg-config libusb-1.0-0-dev libsdl2-dev ninja-build build-essential pkg-config python3 zlib1g-dev libaudiofile-dev
       - name: Build
         run: make -j4
+      - name: Upload Rom
+        uses: actions/upload-artifact@v2
+        with:
+          name: SM64Plus-3DS
+          path: build/us_3ds/
+          if-no-files-found: error        
