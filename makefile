@@ -1099,3 +1099,7 @@ MAKEFLAGS += --no-builtin-rules
 -include $(DEP_FILES)
 
 print-% : ; $(info $* is a $(flavor $*) variable set to [$($*)]) @true
+endif
+endif
+endif
+endif
